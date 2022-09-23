@@ -1,0 +1,52 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: posts-service
+spec:
+  ports:
+    - port: 3000
+      name: http
+      protocol: TCP
+  selector:
+    app: posts
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posts-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: posts
+        version: 0.0.1
+    spec:
+      containers:
+        - name: posts
+          image: posts:0.0.1
+          imagePullPolicy: Never
+          ports:
+            # pura documentação (caráter informativo), igual o EXPOSE do Dockerfile
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: PORT
+              value: "3000"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public
+                  optional: false
+          resources:
+            limits:
+              memory: "128M"
+              cpu: "100m" # 10% de cada core de CPU - m -> millicore (1000m = 1.0 = 1 CPU)
+  selector:
+    matchLabels:
+      app: posts
+      version: 0.0.1

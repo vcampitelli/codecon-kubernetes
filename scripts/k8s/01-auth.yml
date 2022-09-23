@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+spec:
+  ports:
+    - port: 3000
+      name: http
+      protocol: TCP
+  selector:
+    app: auth
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-deployment
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: auth
+        version: 0.0.1
+    spec:
+      containers:
+        - name: auth
+          image: auth:0.0.1
+          imagePullPolicy: Never
+          ports:
+            # pura documentação (caráter informativo), igual o EXPOSE do Dockerfile
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: NODE_ENV
+              value: development
+            - name: PORT
+              value: "3000"
+            - name: JWT_PRIVATE_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: private
+                  optional: false
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public
+                  optional: false
+  selector:
+    matchLabels:
+      app: auth

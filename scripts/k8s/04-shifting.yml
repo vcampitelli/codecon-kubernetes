@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: posts-deployment-v2
+spec:
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        app: posts
+        version: 0.0.2
+    spec:
+      containers:
+        - name: posts
+          image: posts:0.0.2
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 3000
+              protocol: TCP
+          env:
+            - name: PORT
+              value: "3000"
+            - name: JWT_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: jwt-keys
+                  key: public
+                  optional: false
+  selector:
+    matchLabels:
+      app: posts
+      version: 0.0.2
+---
+# @link https://istio.io/latest/docs/concepts/traffic-management/#destination-rules
+apiVersion: networking.istio.io/v1alpha3
+kind: DestinationRule
+metadata:
+  name: posts-service
+spec:
+  host: posts-service
+  subsets:
+    - name: v1
+      labels:
+        version: 0.0.1
+    - name: v2
+      labels:
+        version: 0.0.2
+---
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: app-route
+spec:
+  hosts:
+    - "*"
+  gateways:
+    - workshop-gateway
+  http:
+    - match:
+        - uri:
+            exact: /auth
+      route:
+        - destination:
+            host: auth-service
+            port:
+              number: 3000
+    - match:
+        - uri:
+            exact: /posts
+      route:
+        - destination:
+            host: posts-service
+            port:
+              number: 3000
+            subset: v1
+          weight: 50
+        - destination:
+            host: posts-service
+            port:
+              number: 3000
+            subset: v2
+          weight: 50
+    - match:
+        - uri:
+            exact: /users
+      route:
+        - destination:
+            host: users-service
+            port:
+              number: 3000
+    - match:
+        - uri:
+            exact: /composition
+      route:
+        - destination:
+            host: composition-service
+            port:
+              number: 3000
+      rewrite:
+        uri: '/'
